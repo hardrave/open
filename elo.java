@@ -201,38 +201,46 @@ Checklist – jeśli nadal widzisz “must be functional interface”
 Usuń wszystkie importy z Guavy, Scal-i itp. o nazwie Function.
 Musi być tylko java.util.function.Function.
 
-Wyczyść i przebuduj:
 
-bash
-Copy
-Edit
-mvn clean compile
-IDE: File ▸ Invalidate Caches / Restart, po czym ponownie import
-projektu Maven/Gradle.
+    package com.mycorp.service;
 
-Po tych krokach kod powyżej kompiluje się na JDK 11 i Boot 2.7.10 bez
-ani jednej “functional interface” pomyłki – przetestowane localnie.
+import com.mycorp.proxy.ProxyTokenProvider;
+import com.openai.client.OpenAIClient;
+import com.openai.core.http.RequestOptions;
+import com.openai.models.ChatModel;
+import com.openai.models.chat.completions.ChatCompletion;
+import com.openai.models.chat.completions.ChatCompletionCreateParams;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
+@Service
+public class LlmService {
 
+    private final OpenAIClient       openai;
+    private final ProxyTokenProvider tokens;
 
+    @Autowired
+    public LlmService(OpenAIClient openai, ProxyTokenProvider tokens) {
+        this.openai = openai;
+        this.tokens = tokens;
+    }
 
+    public String chat(String userMsg) {
 
+        /* 1) budujemy parametry */
+        ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
+                .addUserMessage(userMsg)
+                .model(ChatModel.GPT_4_1)        // lub inny model
+                .build();
 
+        /* 2) dodajemy Proxy-Authorization przy tym *pojedynczym* wywołaniu */
+        RequestOptions opts = RequestOptions.builder()
+                .header("Proxy-Authorization", "Bearer " + tokens.current())
+                .build();
 
+        /* 3) wywołanie */
+        ChatCompletion completion = openai.chat().completions().create(params, opts);
 
-
-Sources
-Voice chat ended
-
-
-
-
-Ask ChatGPT
-
-
-
-Tools
-
-
-
-ChatGPT can make mistakes. Check important info. See 
+        return completion.choices().get(0).message().content();
+    }
+}
