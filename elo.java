@@ -244,3 +244,38 @@ public class LlmService {
         return completion.choices().get(0).message().content();
     }
 }
+
+import com.mycorp.proxy.ProxyTokenProvider;
+import com.openai.client.OpenAIClient;
+import com.openai.models.ChatModel;
+import com.openai.models.chat.completions.*;
+import org.springframework.stereotype.Service;
+
+@Service
+public class LlmService {
+
+    private final OpenAIClient openai;           // wstrzyknięty z OpenAiConfig
+    private final ProxyTokenProvider tokens;     // świeży Bearer
+
+    public LlmService(OpenAIClient openai, ProxyTokenProvider tokens) {
+        this.openai = openai;
+        this.tokens = tokens;
+    }
+
+    public String chat(String userMsg) {
+
+        ChatCompletionCreateParams params = ChatCompletionCreateParams.builder()
+                .addUserMessage(userMsg)
+                .model(ChatModel.GPT_4_1)
+                .build();
+
+        // per-request dokładamy Authorization dla PROXY
+        OpenAIClient scoped = openai.withOptions(o ->
+            o.putHeader("Proxy-Authorization", "Bearer " + tokens.current())
+        );
+
+        ChatCompletion resp = scoped.chat().completions().create(params);
+
+        return resp.choices().get(0).message().content();
+    }
+}
