@@ -203,3 +203,32 @@ public class ProxyTokenProvider {
         valid.set(Instant.now().plusSeconds(ttl));
     }
 }
+@Configuration
+public class OpenAiConfig {
+
+    @Bean
+    public OpenAIClient openai(ProxyTokenProvider tokens,
+                               @Value("${proxy.host}") String proxyHost,
+                               @Value("${openai.base-url:}") String baseUrl) {
+
+        Proxy proxy = new Proxy(Proxy.Type.HTTP,
+                                new InetSocketAddress(proxyHost, 443));
+
+        Authenticator auth = (route, resp) -> {
+            if (resp.request().header("Proxy-Authorization") != null) return null;
+            String bearer = "Bearer " + tokens.current();
+            return resp.request().newBuilder()
+                       .header("Proxy-Authorization", bearer)
+                       .build();
+        };
+
+        OpenAIOkHttpClient.Builder sdk = OpenAIOkHttpClient.builder()
+                .apiKey("ignored")       // SDK needs a placeholder
+                .proxy(proxy)
+                .proxyAuthenticator(auth);
+
+        if (!baseUrl.isBlank()) sdk.baseUrl(baseUrl);
+        return sdk.build();
+    }
+}
+
