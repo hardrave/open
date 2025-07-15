@@ -136,3 +136,70 @@ class LlmService {
                 .choices().get(0).message().content();
     }
 }
+// src/main/java/com/mycorp/proxy/ProxyTokenProvider.java
+package com.mycorp.proxy;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.Getter;
+import lombok.Setter;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
+import org.springframework.http.*;
+import org.springframework.util.*;
+import org.springframework.web.client.RestTemplate;
+
+import javax.annotation.PostConstruct;
+import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
+
+@Component
+@ConfigurationProperties(prefix = "token")   // <-- binds token.* keys
+@Getter @Setter                               // Lombok generates setters for Spring
+public class ProxyTokenProvider {
+
+    /* -------- properties injected from application.properties -------- */
+    private String url;
+    private String clientId;
+    private String clientSecret;
+    private String username;
+    private String password;
+
+    /* -------- runtime state (not bound) -------- */
+    private final RestTemplate rest = new RestTemplate();
+    private final ObjectMapper json = new ObjectMapper();
+    private final AtomicReference<String>  token  = new AtomicReference<>();
+    private final AtomicReference<Instant> valid  = new AtomicReference<>(Instant.EPOCH);
+
+    @PostConstruct
+    void eager() { refresh(); }
+
+    public String current() {
+        if (Instant.now().isAfter(valid.get().minusSeconds(10))) {
+            synchronized (this) {
+                if (Instant.now().isAfter(valid.get().minusSeconds(10))) refresh();
+            }
+        }
+        return token.get();
+    }
+
+    /* -------- private helpers -------- */
+    @SuppressWarnings("unchecked")
+    private void refresh() {
+        HttpHeaders h = new HttpHeaders();
+        h.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+
+        MultiValueMap<String,String> f = new LinkedMultiValueMap<>();
+        f.set("grant_type",    "password");
+        f.set("client_id",     clientId);
+        f.set("client_secret", clientSecret);
+        f.set("username",      username);
+        f.set("password",      password);
+
+        Map<String,Object> rsp = rest.postForObject(url, new HttpEntity<>(f, h), Map.class);
+
+        token.set((String) rsp.get("access_token"));
+        int ttl = ((Number) rsp.getOrDefault("expires_in", 300)).intValue();
+        valid.set(Instant.now().plusSeconds(ttl));
+    }
+}
