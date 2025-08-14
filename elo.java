@@ -297,3 +297,26 @@ script>
   });
 </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const editorEl = document.getElementById('editor');
+  const hidden = document.getElementById('content');
+  const form = (hidden && hidden.form) || (editorEl && editorEl.closest('form')) || document.querySelector('form');
+
+  if (!window.Quill) { console.error('Quill not loaded'); return; }
+  if (!editorEl || !hidden || !form) { console.error('Missing #editor, #content, or <form>'); return; }
+
+  const quill = new Quill(editorEl, { theme: 'snow' });
+
+  // preload from hidden (e.g., after validation error)
+  if (hidden.value && hidden.value.trim().length > 0) {
+    quill.clipboard.dangerouslyPasteHTML(hidden.value);
+  }
+
+  // ensure hidden field has up-to-date HTML on submit
+  form.addEventListener('submit', function () {
+    hidden.value = quill.root.innerHTML;
+  });
+});
+</script>
+
