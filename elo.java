@@ -279,3 +279,21 @@ public class LlmService {
         return resp.choices().get(0).message().content();
     }
 }
+script>
+<script>
+  const quill = new Quill('#editor', { theme: 'snow' });
+
+  // If it's a NEW object, *{content} is usually empty/null, so editor starts blank.
+  // Still, if there is any prefilled value (e.g., after validation error), load it:
+  const hidden = document.getElementById('content');
+  if (hidden.value && hidden.value.trim().length > 0) {
+    // Paste existing HTML back into Quill (use with care; sanitize server-side)
+    quill.clipboard.dangerouslyPasteHTML(hidden.value);
+  }
+
+  // Keep hidden field updated on submit
+  document.querySelector('form').addEventListener('submit', () => {
+    hidden.value = quill.root.innerHTML; // or JSON.stringify(quill.getContents()) for Delta
+  });
+</script>
+
