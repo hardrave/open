@@ -319,4 +319,42 @@ document.addEventListener('DOMContentLoaded', function () {
   });
 });
 </script>
+<script>
+(function () {
+  function onReady(fn) {
+    if (document.readyState !== 'loading') fn();
+    else document.addEventListener('DOMContentLoaded', fn);
+  }
 
+  onReady(function () {
+    const editorEl = document.getElementById('editor');
+    const hidden = document.getElementById('content');
+    if (!window.Quill || !editorEl || !hidden) return;
+
+    const quill = new Quill(editorEl, { theme: 'snow' });
+
+    // preload from hidden if present (e.g., after validation error)
+    if (hidden.value && hidden.value.trim().length > 0) {
+      quill.clipboard.dangerouslyPasteHTML(hidden.value);
+    }
+
+    function syncHidden() {
+      if (hidden.disabled) hidden.disabled = false;     // ensure it's submitted
+      if (!hidden.name) hidden.name = 'content';        // ensure it has a name
+      hidden.value = quill.root.innerHTML;              // store HTML (or use JSON.stringify(quill.getContents()))
+    }
+
+    // keep synced while typing
+    quill.on('text-change', syncHidden);
+
+    // safety net: also sync right before submit
+    const form = hidden.form || editorEl.closest('form') || document.querySelector('form');
+    if (form) {
+      form.addEventListener('submit', syncHidden, { capture: true });
+    }
+
+    // initial sync
+    syncHidden();
+  });
+})();
+</script>
