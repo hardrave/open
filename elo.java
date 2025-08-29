@@ -1,3 +1,22 @@
+private String[] buildCcAddresses(String ccField) {
+    List<String> addresses = new ArrayList<>();
+
+    if (ccField != null && !ccField.isBlank()) {
+        // support both ; and , as separators
+        String[] parts = ccField.split("\\s*[;,]\\s*");
+        for (String part : parts) {
+            if (part != null && !part.isBlank()) {
+                addresses.add(part.trim());
+            }
+        }
+    }
+
+    // always add your own address
+    addresses.add("me@example.com");
+
+    return addresses.toArray(new String[0]);
+}
+
 
 if (mail.getCc1() != null && !mail.getCc1().isBlank()) {
     helper.addCc(mail.getCc1());
