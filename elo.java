@@ -1,3 +1,28 @@
+
+private String[] buildCcAddresses(String ccField) {
+    Set<String> addresses = new LinkedHashSet<>(); // keeps order, avoids duplicates
+
+    if (ccField != null && !ccField.isBlank()) {
+        // support both ; and , as separators
+        String[] parts = ccField.split("\\s*[;,]\\s*");
+        for (String part : parts) {
+            if (part != null && !part.isBlank()) {
+                // clean: trim + remove control characters
+                String cleaned = part.trim().replaceAll("\\p{Cntrl}", "");
+                if (!cleaned.isEmpty()) {
+                    addresses.add(cleaned);
+                }
+            }
+        }
+    }
+
+    // always add your own address
+    addresses.add("me@example.com");
+
+    return addresses.toArray(new String[0]);
+}
+
+
 private String[] buildCcAddresses(String ccField) {
     List<String> addresses = new ArrayList<>();
 
