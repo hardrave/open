@@ -1,4 +1,85 @@
 
+import jakarta.mail.internet.InternetAddress;
+import jakarta.mail.MessagingException;
+import java.text.Normalizer;
+import java.util.*;
+import java.util.regex.Pattern;
+
+private static final Pattern SEP_SPLIT = Pattern.compile("\\s*[;,]\\s*");
+// Remove ALL Unicode controls/format chars/whitespace (incl. NBSP, ZWSP) inside the email.
+// Keep only regular spaces temporarily, then trim and re-strip spaces around '@' and dots.
+private static final Pattern BAD_CHARS = Pattern.compile("[\\p{Cc}\\p{Cf}\\p{Z}]+"); // controls + format + all Unicode spaces
+
+private String sanitizeEmailToken(String raw) {
+    if (raw == null) return null;
+
+    // Normalize Unicode (compose accents, unify forms)
+    String s = Normalizer.normalize(raw, Normalizer.Form.NFKC);
+
+    // Extract plain address if it’s like: "Name <user@example.com>"
+    try {
+        InternetAddress[] parsed = InternetAddress.parse(s, false);
+        if (parsed.length == 1 && parsed[0].getAddress() != null) {
+            s = parsed[0].getAddress();
+        }
+    } catch (Exception ignored) {
+        // fall back to raw token
+    }
+
+    // Strip control/format/whitespace chars anywhere
+    s = BAD_CHARS.matcher(s).replaceAll("");
+
+    // Lowercase for consistency (JavaMail accepts uppercase, but this avoids dupes)
+    s = s.toLowerCase(Locale.ROOT);
+
+    // Remove stray quotes
+    s = s.replace("\"", "").trim();
+
+    // Extra hardening: make sure there’s only one '@' and clean spaces around dots
+    int at = s.indexOf('@');
+    if (at <= 0 || at != s.lastIndexOf('@')) return null; // invalid
+
+    String local = s.substring(0, at).trim();
+    String domain = s.substring(at + 1).trim();
+
+    if (local.isEmpty() || domain.isEmpty()) return null;
+
+    // Remove any lingering dot-adjacent whitespace artifacts
+    domain = domain.replace(" .", ".").replace(". ", ".").replace("..", ".");
+
+    // Reject if domain contains anything except letters/digits/hyphen/dot after cleanup
+    if (!domain.matches("[a-z0-9.-]+")) return null;
+
+    return local + "@" + domain;
+}
+
+private String[] buildCcAddresses(String ccField) {
+    LinkedHashSet<String> uniq = new LinkedHashSet<>();
+
+    if (ccField != null && !ccField.isBlank()) {
+        for (String token : SEP_SPLIT.split(ccField)) {
+            if (token == null || token.isBlank()) continue;
+            String cleaned = sanitizeEmailToken(token);
+            if (cleaned == null) continue;
+
+            // Final strict validation (throws if bad)
+            try {
+                InternetAddress ia = new InternetAddress(cleaned, true);
+                uniq.add(ia.getAddress());
+            } catch (Exception ignored) {
+                // skip invalid
+            }
+        }
+    }
+
+    // Always add your own CC, but avoid duplicates
+    String me = sanitizeEmailToken("me@example.com");
+    if (me != null) uniq.add(me);
+
+    return uniq.toArray(new String[0]);
+}
+
+
 private String[] buildCcAddresses(String ccField) {
     Set<String> addresses = new LinkedHashSet<>(); // keeps order, avoids duplicates
 
