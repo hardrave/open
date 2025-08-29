@@ -1,3 +1,12 @@
+
+if (mail.getCc1() != null && !mail.getCc1().isBlank()) {
+    helper.addCc(mail.getCc1());
+}
+if (mail.getCc2() != null && !mail.getCc2().isBlank()) {
+    helper.addCc(mail.getCc2());
+}
+
+
 1 ProxyTokenProvider.java
 (identyczny do wcześniejszego – tylko importy)
 
